@@ -58,8 +58,11 @@
         #map-container {
             position: relative;
             width: 100%;
-            padding-bottom: 65%;
+            padding-bottom: 40%; /* Adjusted aspect ratio for simplemaps */
             height: 0;
+            background-color: #f0f4f8;
+            border-radius: 0.5rem;
+            overflow: hidden; /* Hide anything that spills out */
         }
         #map-container svg {
             position: absolute;
@@ -71,16 +74,17 @@
         .city-dot {
             fill: #fb923c;
             stroke: #fff;
-            stroke-width: 1.5;
+            stroke-width: 0.5; /* Adjusted stroke for new map scale */
             transition: all 0.2s ease-in-out;
             cursor: pointer;
         }
         .city-dot:hover {
             fill: #f97316;
+            transform-origin: center;
             transform: scale(1.2);
         }
         .tooltip {
-            position: absolute;
+            position: fixed; /* Use fixed position for tooltip */
             background-color: rgba(0, 0, 0, 0.75);
             color: white;
             padding: 5px 10px;
@@ -90,6 +94,7 @@
             opacity: 0;
             transition: opacity 0.2s;
             white-space: nowrap;
+            z-index: 10;
         }
     </style>
 </head>
@@ -140,18 +145,15 @@
              <div class="card lg:col-span-2">
                 <h2>Peta Sebaran Kota Peserta</h2>
                 <div id="map-container">
-                    <!-- Placeholder for SVG Map -->
-                    <svg id="indonesia-map" viewBox="0 0 1000 450" class="bg-gray-200 rounded-lg">
-                        <!-- Path data peta akan dimasukkan oleh Javascript -->
-                    </svg>
-                    <div id="map-tooltip" class="tooltip"></div>
+                    <!-- The map SVG will be loaded here by JavaScript -->
                 </div>
+                <div id="map-tooltip" class="tooltip"></div>
             </div>
         </div>
 
         <!-- Ringkasan Webinar -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div class="card">
+            <div class="card" id="key-points-card">
                 <h2>Poin-poin Utama</h2>
                 <ul class="list-disc pl-5 space-y-2 text-gray-700">
                     <li>AI dalam kesehatan sudah diimplementasikan terutama untuk analisis citra medis.</li>
@@ -161,7 +163,7 @@
                     <li>Webinar ini merupakan episode pertama dari seri bulanan tentang AI untuk kesehatan.</li>
                 </ul>
             </div>
-            <div class="card">
+            <div class="card" id="qa-summary-card">
                 <h2>Ringkasan Tanya Jawab</h2>
                 <div class="space-y-4 text-gray-700">
                     <div>
@@ -190,206 +192,118 @@
                 </div>
             </div>
         </div>
-
-
     </div>
 
     <script>
-        // Data pendaftaran (contoh, akan diganti dengan data asli)
+        // Data dummy, akan digantikan oleh data asli dari file CSV
         const registrationData = [
-            { "Kota": "Jakarta", "Institusi": "RS Cipto Mangunkusumo", "Pekerjaan": "Dokter" },
-            { "Kota": "Surabaya", "Institusi": "Universitas Airlangga", "Pekerjaan": "Mahasiswa Kedokteran" },
-            { "Kota": "Bandung", "Institusi": "RS Hasan Sadikin", "Pekerjaan": "Perawat" },
-            { "Kota": "Yogyakarta", "Institusi": "Universitas Gadjah Mada", "Pekerjaan": "Peneliti" },
-            { "Kota": "Jakarta", "Institusi": "Universitas Indonesia", "Pekerjaan": "Dokter" },
-            { "Kota": "Semarang", "Institusi": "RSUP Dr. Kariadi", "Pekerjaan": "Apoteker" },
-            { "Kota": "Jakarta", "Institusi": "Kementerian Kesehatan", "Pekerjaan": "Staf Ahli" },
-            { "Kota": "Medan", "Institusi": "Universitas Sumatera Utara", "Pekerjaan": "Mahasiswa Kedokteran" },
-            { "Kota": "Makassar", "Institusi": "RSUP Dr. Wahidin Sudirohusodo", "Pekerjaan": "Dokter" },
-            { "Kota": "Denpasar", "Institusi": "Universitas Udayana", "Pekerjaan": "Dosen" },
-            // Menambahkan lebih banyak data untuk representasi yang lebih baik
-            { "Kota": "Jakarta", "Institusi": "Universitas Indonesia", "Pekerjaan": "Mahasiswa Kedokteran" },
-            { "Kota": "Yogyakarta", "Institusi": "Universitas Gadjah Mada", "Pekerjaan": "Dokter" },
-            { "Kota": "Surabaya", "Institusi": "Swasta", "Pekerjaan": "IT Kesehatan" },
-            { "Kota": "Bandung", "Institusi": "Institut Teknologi Bandung", "Pekerjaan": "Mahasiswa Teknik" },
+            { "Kota": "Jakarta", "Institusi": "RS Cipto Mangunkusumo", "Pekerjaan": "Dokter" }, { "Kota": "Surabaya", "Institusi": "Universitas Airlangga", "Pekerjaan": "Mahasiswa Kedokteran" }, { "Kota": "Bandung", "Institusi": "RS Hasan Sadikin", "Pekerjaan": "Perawat" }, { "Kota": "Yogyakarta", "Institusi": "Universitas Gadjah Mada", "Pekerjaan": "Peneliti" }, { "Kota": "Jakarta", "Institusi": "Universitas Indonesia", "Pekerjaan": "Dokter" }, { "Kota": "Semarang", "Institusi": "RSUP Dr. Kariadi", "Pekerjaan": "Apoteker" }, { "Kota": "Jakarta", "Institusi": "Kementerian Kesehatan", "Pekerjaan": "Staf Ahli" }, { "Kota": "Medan", "Institusi": "Universitas Sumatera Utara", "Pekerjaan": "Mahasiswa Kedokteran" }, { "Kota": "Makassar", "Institusi": "RSUP Dr. Wahidin Sudirohusodo", "Pekerjaan": "Dokter" }, { "Kota": "Denpasar", "Institusi": "Universitas Udayana", "Pekerjaan": "Dosen" }, { "Kota": "Jakarta", "Institusi": "Universitas Indonesia", "Pekerjaan": "Mahasiswa Kedokteran" }, { "Kota": "Yogyakarta", "Institusi": "Universitas Gadjah Mada", "Pekerjaan": "Dokter" }, { "Kota": "Surabaya", "Institusi": "Swasta", "Pekerjaan": "IT Kesehatan" }, { "Kota": "Bandung", "Institusi": "Institut Teknologi Bandung", "Pekerjaan": "Mahasiswa Teknik" },
         ];
-
-        // Data kehadiran (contoh, akan diganti dengan data asli)
         const attendanceData = [
-            { "Nama (Original Name)": "User A", "Email": "a@example.com", "Durasi (menit)": 55 },
-            { "Nama (Original Name)": "User B", "Email": "b@example.com", "Durasi (menit)": 45 },
-            { "Nama (Original Name)": "User C", "Email": "c@example.com", "Durasi (menit)": 60 },
-            { "Nama (Original Name)": "User D", "Email": "d@example.com", "Durasi (menit)": 30 },
-            { "Nama (Original Name)": "User E", "Email": "e@example.com", "Durasi (menit)": 58 },
-            { "Nama (Original Name)": "User F", "Email": "f@example.com", "Durasi (menit)": 25 },
-            { "Nama (Original Name)": "User G", "Email": "g@example.com", "Durasi (menit)": 50 },
-            { "Nama (Original Name)": "User H", "Email": "h@example.com", "Durasi (menit)": 48 },
-            { "Nama (Original Name)": "User I", "Email": "i@example.com", "Durasi (menit)": 60 },
-            { "Nama (Original Name)": "User J", "Email": "j@example.com", "Durasi (menit)": 15 },
-            { "Nama (Original Name)": "User K", "Email": "k@example.com", "Durasi (menit)": 59 },
+            { "Nama (Original Name)": "User A", "Email": "a@example.com", "Durasi (menit)": 55 }, { "Nama (Original Name)": "User B", "Email": "b@example.com", "Durasi (menit)": 45 }, { "Nama (Original Name)": "User C", "Email": "c@example.com", "Durasi (menit)": 60 }, { "Nama (Original Name)": "User D", "Email": "d@example.com", "Durasi (menit)": 30 }, { "Nama (Original Name)": "User E", "Email": "e@example.com", "Durasi (menit)": 58 }, { "Nama (Original Name)": "User F", "Email": "f@example.com", "Durasi (menit)": 25 }, { "Nama (Original Name)": "User G", "Email": "g@example.com", "Durasi (menit)": 50 }, { "Nama (Original Name)": "User H", "Email": "h@example.com", "Durasi (menit)": 48 }, { "Nama (Original Name)": "User I", "Email": "i@example.com", "Durasi (menit)": 60 }, { "Nama (Original Name)": "User J", "Email": "j@example.com", "Durasi (menit)": 15 }, { "Nama (Original Name)": "User K", "Email": "k@example.com", "Durasi (menit)": 59 },
         ];
         
+        // Fungsi untuk memuat dan memproses data utama
         async function processData() {
-            // Seharusnya memuat dari file CSV, untuk sekarang gunakan data dummy
-            // const registrants = await loadCSV('registration_96749605322_2025_06_21.csv');
-            // const attendees = await loadCSV('participants_96749605322_2025_06_20.csv');
             const registrants = registrationData;
             const attendees = attendanceData;
+            const totalRegistrants = 150;
+            const totalAttendees = 110;
 
-            const totalRegistrants = 150; // Data dari file
-            const totalAttendees = 110; // Data dari file
-
-            // Statistik Utama
             document.getElementById('total-registrants').textContent = totalRegistrants;
             document.getElementById('total-attendees').textContent = totalAttendees;
             const showUpRate = totalAttendees > 0 ? ((totalAttendees / totalRegistrants) * 100).toFixed(0) + '%' : '0%';
             document.getElementById('show-up-rate').textContent = showUpRate;
 
-            const totalDuration = attendees.reduce((sum, p) => sum + p['Durasi (menit)'], 0);
+            const totalDuration = attendees.reduce((sum, p) => sum + (p['Durasi (menit)'] || 0), 0);
             const avgDuration = totalAttendees > 0 ? (totalDuration / totalAttendees).toFixed(0) : 0;
             document.getElementById('avg-duration').textContent = `${avgDuration}m`;
 
-
-            // Proses data untuk grafik
             const institutions = countOccurrences(registrants, 'Institusi', 5);
             const jobs = countOccurrences(registrants, 'Pekerjaan', 5);
             const cities = countOccurrences(registrants, 'Kota');
 
-            // Render Grafik
             renderChart('institutionChart', 'pie', institutions, 'Institusi Peserta');
             renderChart('jobChart', 'doughnut', jobs, 'Pekerjaan Peserta');
-
-            // Render Peta
             await renderMap(cities);
         }
-
+        
+        // Fungsi pembantu untuk grafik
         function countOccurrences(data, key, topN = null) {
             const counts = data.reduce((acc, item) => {
                 const value = item[key] || 'Tidak Disebutkan';
                 acc[value] = (acc[value] || 0) + 1;
                 return acc;
             }, {});
-
             let sorted = Object.entries(counts).sort(([, a], [, b]) => b - a);
-            
             if (topN && sorted.length > topN) {
                 const otherCount = sorted.slice(topN).reduce((acc, [, count]) => acc + count, 0);
                 sorted = sorted.slice(0, topN);
-                if (otherCount > 0) {
-                    sorted.push(['Lainnya', otherCount]);
-                }
+                if (otherCount > 0) { sorted.push(['Lainnya', otherCount]); }
             }
-            
-            return {
-                labels: sorted.map(item => item[0]),
-                data: sorted.map(item => item[1])
-            };
+            return { labels: sorted.map(item => item[0]), data: sorted.map(item => item[1]) };
         }
         
         function renderChart(canvasId, type, chartData, label) {
             const ctx = document.getElementById(canvasId).getContext('2d');
             const colors = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'];
-
             new Chart(ctx, {
                 type: type,
-                data: {
-                    labels: chartData.labels,
-                    datasets: [{
-                        label: label,
-                        data: chartData.data,
-                        backgroundColor: colors,
-                        borderColor: '#ffffff',
-                        borderWidth: 2
-                    }]
-                },
+                data: { labels: chartData.labels, datasets: [{ label: label, data: chartData.data, backgroundColor: colors, borderColor: '#ffffff', borderWidth: 2 }] },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                font: {
-                                    family: "'Inter', sans-serif",
-                                    size: 12
-                                },
-                                usePointStyle: true,
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.parsed !== null) {
-                                        const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                                        const percentage = ((context.parsed / total) * 100).toFixed(1) + '%';
-                                        label += `${context.raw} (${percentage})`;
-                                    }
-                                    return label;
-                                }
-                            }
-                        },
-                        datalabels: {
-                           formatter: (value, ctx) => {
-                                let sum = 0;
-                                let dataArr = ctx.chart.data.datasets[0].data;
-                                dataArr.map(data => {
-                                    sum += data;
-                                });
-                                let percentage = (value*100 / sum).toFixed(1)+"%";
-                                return percentage;
-                            },
-                            color: '#fff',
-                            font: {
-                                weight: 'bold',
-                                family: "'Inter', sans-serif"
-                            }
-                        }
+                        legend: { position: 'bottom', labels: { font: { family: "'Inter', sans-serif", size: 12 }, usePointStyle: true, } },
+                        tooltip: { callbacks: { label: function(context) { let label = context.label || ''; if (label) { label += ': '; } if (context.parsed !== null) { const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0); const percentage = ((context.parsed / total) * 100).toFixed(1) + '%'; label += `${context.raw} (${percentage})`; } return label; } } },
+                        datalabels: { formatter: (value, ctx) => { let sum = ctx.chart.data.datasets[0].data.reduce((a,b) => a+b, 0); let percentage = (value * 100 / sum).toFixed(1) + "%"; return percentage; }, color: '#fff', font: { weight: 'bold', family: "'Inter', sans-serif" } }
                     }
                 },
-                 plugins: [ChartDataLabels],
+                plugins: [ChartDataLabels],
             });
         }
         
-        // Peta dan Koordinat
+        // Peta dan Koordinat (Disesuaikan untuk simplemaps.com SVG)
         const cityCoordinates = {
-            "Jakarta": { x: 200, y: 285 }, "Bandung": { x: 220, y: 295 }, "Semarang": { x: 260, y: 295 },
-            "Yogyakarta": { x: 265, y: 310 }, "Surabaya": { x: 300, y: 300 }, "Denpasar": { x: 345, y: 325 },
-            "Mataram": { x: 365, y: 330 }, "Kupang": { x: 500, y: 350 }, "Medan": { x: 45, y: 170 },
-            "Banda Aceh": { x: 15, y: 140 }, "Padang": { x: 80, y: 250 }, "Pekanbaru": { x: 100, y: 210 },
-            "Jambi": { x: 130, y: 240 }, "Palembang": { x: 150, y: 260 }, "Bengkulu": { x: 115, y: 275 },
-            "Bandar Lampung": { x: 170, y: 280 }, "Pontianak": { x: 250, y: 220 }, "Palangkaraya": { x: 320, y: 250 },
-            "Banjarmasin": { x: 340, y: 270 }, "Samarinda": { x: 390, y: 225 }, "Tanjung Selor": { x: 400, y: 180 },
-            "Manado": { x: 520, y: 195 }, "Gorontalo": { x: 480, y: 210 }, "Palu": { x: 440, y: 240 },
-            "Mamuju": { x: 425, y: 260 }, "Makassar": { x: 430, y: 280 }, "Kendari": { x: 480, y: 275 },
-            "Ambon": { x: 600, y: 270 }, "Sofifi": { x: 580, y: 210 }, "Manokwari": { x: 700, y: 230 },
-            "Jayapura": { x: 850, y: 250 }
+            "Banda Aceh": { x: 60, y: 120 }, "Medan": { x: 120, y: 150 }, "Pekanbaru": { x: 170, y: 210 },
+            "Padang": { x: 150, y: 240 }, "Jambi": { x: 200, y: 250 }, "Palembang": { x: 220, y: 280 },
+            "Bengkulu": { x: 190, y: 300 }, "Bandar Lampung": { x: 240, y: 320 }, "Jakarta": { x: 270, y: 330 },
+            "Bandung": { x: 285, y: 345 }, "Semarang": { x: 330, y: 345 }, "Yogyakarta": { x: 335, y: 360 },
+            "Surabaya": { x: 365, y: 350 }, "Denpasar": { x: 410, y: 370 }, "Mataram": { x: 430, y: 370 },
+            "Kupang": { x: 580, y: 390 }, "Pontianak": { x: 310, y: 220 }, "Palangkaraya": { x: 380, y: 260 },
+            "Banjarmasin": { x: 410, y: 290 }, "Samarinda": { x: 460, y: 210 }, "Tanjung Selor": { x: 470, y: 160 },
+            "Makassar": { x: 490, y: 320 }, "Mamuju": { x: 480, y: 280 }, "Palu": { x: 510, y: 240 },
+            "Gorontalo": { x: 560, y: 210 }, "Manado": { x: 600, y: 190 }, "Kendari": { x: 550, y: 300 },
+            "Ambon": { x: 680, y: 290 }, "Sofifi": { x: 660, y: 200 }, "Manokwari": { x: 780, y: 240 },
+            "Jayapura": { x: 920, y: 280 }
         };
-
+        
         async function renderMap(cityData) {
-            const mapContainer = document.getElementById('indonesia-map');
+            const mapContainer = document.getElementById('map-container');
             const tooltip = document.getElementById('map-tooltip');
-            
-            // Muat peta SVG Indonesia
             try {
-                const response = await fetch('https://upload.wikimedia.org/wikipedia/commons/9/98/Indonesia%2C_administrative_divisions_-_de%2C_colored.svg');
+                const response = await fetch('https://simplemaps.com/static/svg/country/id/admin1/id.svg');
+                if (!response.ok) {
+                    throw new Error(`Gagal memuat peta: ${response.statusText}`);
+                }
                 const svgText = await response.text();
                 mapContainer.innerHTML = svgText;
 
-                const cityGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                const mapSvgElement = mapContainer.querySelector('svg');
+                if (!mapSvgElement) {
+                    throw new Error("Elemen SVG tidak ditemukan setelah dimuat.");
+                }
                 
-                // Normalisasi nilai untuk ukuran radius
-                const maxCount = Math.max(...cityData.data);
+                // Adjust viewBox to match our coordinates system (approx. 1024x396)
+                mapSvgElement.setAttribute('viewBox', '0 0 1024 400');
+
+                const cityGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                const maxCount = Math.max(...cityData.data, 1);
                 
                 cityData.labels.forEach((city, index) => {
                     if (cityCoordinates[city]) {
                         const coords = cityCoordinates[city];
                         const count = cityData.data[index];
-                        const radius = 3 + (count / maxCount) * 9; // Radius 3 sampai 12
-
+                        const radius = 3 + (count / maxCount) * 6; // Dynamic radius based on participant count
                         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
                         circle.setAttribute("cx", coords.x);
                         circle.setAttribute("cy", coords.y);
@@ -399,29 +313,32 @@
                         circle.addEventListener('mousemove', (e) => {
                             tooltip.style.opacity = '1';
                             tooltip.style.left = `${e.pageX + 10}px`;
-                            tooltip.style.top = `${e.pageY - 28}px`;
+                            tooltip.style.top = `${e.pageY - 10}px`;
                             tooltip.innerHTML = `${city}: ${count} peserta`;
                         });
-
+                        
                         circle.addEventListener('mouseout', () => {
                             tooltip.style.opacity = '0';
                         });
-
+                        
                         cityGroup.appendChild(circle);
                     }
                 });
                 
-                mapContainer.querySelector('svg').appendChild(cityGroup);
+                mapSvgElement.appendChild(cityGroup);
 
             } catch (error) {
                 console.error('Gagal memuat peta SVG:', error);
-                mapContainer.innerHTML = '<p class="text-center text-red-500">Gagal memuat peta.</p>';
+                if (mapContainer) {
+                    mapContainer.innerHTML = '<p class="text-center text-red-500 p-8">Gagal memuat peta. Silakan coba muat ulang halaman.</p>';
+                }
             }
         }
 
-
         // Panggil fungsi utama saat halaman dimuat
-        window.onload = processData;
+        window.onload = () => {
+            processData();
+        };
 
     </script>
 </body>
